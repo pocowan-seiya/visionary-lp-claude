@@ -240,6 +240,61 @@ Vision/Product/Bridge データを削除
 - 404: LP が見つからない
 - 403: アクセス権限なし
 
+### LP Generation (AI)
+
+#### POST /api/lp/[lpId]/generate
+Vision/Product/Bridge データをもとに AI で LP 全体のセクションを生成
+
+**認証**: 必要（所有者のみ）
+
+**リクエストボディ** (オプション):
+```json
+{
+  "provider": "claude"  // optional: "claude" | "openai" | "gemini"
+}
+```
+
+**レスポンス**:
+```json
+{
+  "message": "LP sections generated successfully",
+  "data": {
+    "sections": [
+      {
+        "id": "uuid",
+        "type": "hero",
+        "props": { /* HeroSectionProps */ }
+      },
+      {
+        "id": "uuid",
+        "type": "problem",
+        "props": { /* ProblemSectionProps */ }
+      }
+      // ... more sections
+    ],
+    "sectionCount": 10,
+    "provider": "claude"
+  }
+}
+```
+
+**エラー**:
+- 404: LP または Vision/Product データが見つからない
+- 403: アクセス権限なし
+- 500: AI 生成エラー
+
+**利用可能な AI プロバイダー**:
+- `claude`: Anthropic Claude 3.5 Sonnet (推奨)
+- `openai`: OpenAI GPT-4o
+- `gemini`: Google Gemini 1.5 Pro
+
+**環境変数**:
+- `ANTHROPIC_API_KEY`: Claude API キー
+- `OPENAI_API_KEY`: OpenAI API キー
+- `GOOGLE_API_KEY`: Google Gemini API キー
+
+少なくとも 1 つの API キーを設定する必要があります。プロバイダーを指定しない場合、設定されている API キーから自動選択されます。
+
 ## エラーレスポンス形式
 
 すべてのエラーは以下の形式で返されます:
