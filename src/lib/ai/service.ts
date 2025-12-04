@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GeneratedSection } from "@/types";
+import { GeneratedSection, HeroSectionProps, ProblemSectionProps } from "@/types";
 
 export type AIProvider = "claude" | "openai" | "gemini";
 
@@ -13,6 +13,15 @@ export interface AIGenerationOptions {
 
 export interface AIGenerationResult {
   sections: GeneratedSection[];
+  provider: AIProvider;
+  rawResponse: string;
+}
+
+export interface AISectionRegenerationResult {
+  section: {
+    type: "hero" | "problem";
+    props: HeroSectionProps | ProblemSectionProps;
+  };
   provider: AIProvider;
   rawResponse: string;
 }
@@ -185,6 +194,119 @@ export async function generateLPSections(
     };
   } catch (error) {
     console.error(`Error generating with ${provider}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Regenerate a single section using specified AI provider
+ */
+export async function regenerateSection(
+  options: AIGenerationOptions
+): Promise<AISectionRegenerationResult> {
+  const provider = options.provider || getDefaultProvider();
+
+  console.log(`Regenerating section with provider: ${provider}`);
+
+  let result: {
+    section: { type: "hero" | "problem"; props: any };
+    rawResponse: string;
+  };
+
+  try {
+    let rawResponse: string;
+    let parsed: any;
+
+    switch (provider) {
+      case "claude": {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+          throw new Error("ANTHROPIC_API_KEY is not set");
+        }
+
+        const anthropic = new Anthropic({ apiKey });
+        const message = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 4096,
+          temperature: 0.7,
+          system: options.systemPrompt,
+          messages: [{ role: "user", content: options.userPrompt }],
+        });
+
+        const content = message.content[0];
+        if (content.type !== "text") {
+          throw new Error("Unexpected response type from Claude");
+        }
+
+        rawResponse = content.text;
+        const jsonMatch = rawResponse.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : rawResponse;
+        parsed = JSON.parse(jsonString);
+        break;
+      }
+
+      case "openai": {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          throw new Error("OPENAI_API_KEY is not set");
+        }
+
+        const openai = new OpenAI({ apiKey });
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: options.systemPrompt },
+            { role: "user", content: options.userPrompt },
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+        });
+
+        rawResponse = completion.choices[0].message.content || "";
+        parsed = JSON.parse(rawResponse);
+        break;
+      }
+
+      case "gemini": {
+        const apiKey = process.env.GOOGLE_API_KEY;
+        if (!apiKey) {
+          throw new Error("GOOGLE_API_KEY is not set");
+        }
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+          model: "gemini-1.5-pro",
+          generationConfig: {
+            temperature: 0.7,
+            responseMimeType: "application/json",
+          },
+        });
+
+        const prompt = `${options.systemPrompt}\n\n${options.userPrompt}`;
+        const result = await model.generateContent(prompt);
+        rawResponse = result.response.text();
+        parsed = JSON.parse(rawResponse);
+        break;
+      }
+
+      default:
+        throw new Error(`Unknown AI provider: ${provider}`);
+    }
+
+    result = {
+      section: parsed,
+      rawResponse,
+    };
+
+    console.log(`Successfully regenerated section with ${provider}`);
+
+    return {
+      section: result.section,
+      provider,
+      rawResponse: result.rawResponse,
+    };
+  } catch (error) {
+    console.error(`Error regenerating section with ${provider}:`, error);
     throw error;
   }
 }

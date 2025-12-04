@@ -1,4 +1,4 @@
-import { VisionInfo, ProductInfo, BridgeInfo } from "@/types";
+import { VisionInfo, ProductInfo, BridgeInfo, HeroSectionProps, ProblemSectionProps } from "@/types";
 import { lpSectionSchemaString } from "./schema";
 
 /**
@@ -142,5 +142,207 @@ export function generateLPGenerationPrompt(
   return {
     system: generateSystemPrompt(),
     user: generateUserPrompt(vision, product, bridge),
+  };
+}
+
+/**
+ * Generate system prompt for section regeneration
+ */
+export function generateSectionRegenerationSystemPrompt(
+  sectionType: "hero" | "problem"
+): string {
+  const sectionSchemas = {
+    hero: `{
+  "type": "hero",
+  "props": {
+    "eyebrow": "string | null",
+    "headline": "string (required)",
+    "subheadline": "string | null",
+    "calloutText": "string | null",
+    "mainImageUrl": "null",
+    "alignment": "left" | "center"
+  }
+}`,
+    problem: `{
+  "type": "problem",
+  "props": {
+    "title": "string (required)",
+    "description": "string | null",
+    "bullets": ["string"] (required, array of strings),
+    "note": "string | null"
+  }
+}`,
+  };
+
+  const guidelines = {
+    hero: `# Hero セクションのガイドライン
+
+- **headline（見出し）**: 最も重要な要素。ユーザーの注目を一瞬で引く
+  - 具体的なベネフィットを含める
+  - 短く、インパクトのある表現
+  - 15〜30文字程度が理想
+
+- **eyebrow（アイブロー）**: 見出しの上に小さく表示される前置き
+  - サービスのカテゴリーや特徴を示す
+  - 5〜15文字程度
+
+- **subheadline（サブ見出し）**: 見出しを補足する説明
+  - 具体的な価値提案
+  - 誰のための、何を解決するサービスか
+  - 30〜60文字程度
+
+- **calloutText（強調テキスト）**: 特別なオファーや期限などを強調
+  - 緊急性や希少性を訴求
+  - 「今なら無料」「限定50名」など
+
+- **alignment**: "center" を推奨（インパクト重視）`,
+
+    problem: `# Problem セクションのガイドライン
+
+- **title（タイトル）**: 課題を端的に表現
+  - 「こんなお悩みありませんか？」
+  - 「〇〇でこんな課題を抱えていませんか？」
+  - ターゲットが共感できる表現
+
+- **description（説明）**: 課題の背景や状況を説明
+  - なぜこの課題が重要なのか
+  - 放置するとどうなるか
+  - 30〜80文字程度
+
+- **bullets（箇条書き）**: 具体的な痛み・悩み
+  - 3〜5個が適切
+  - 「〜できない」「〜で困っている」形式
+  - ターゲットの実際の声を反映
+  - 各項目15〜40文字程度
+
+- **note（注記）**: 補足や共感のメッセージ
+  - 「これらの課題、よく分かります」
+  - 「実は多くの方が同じ悩みを抱えています」`,
+  };
+
+  return `あなたはランディングページ（LP）のコピーライティング専門家です。
+
+既存の${sectionType === "hero" ? "Hero" : "Problem"}セクションをより効果的な内容に改善してください。
+
+# 出力形式
+
+以下のJSON形式で1つのセクションを生成してください：
+
+${sectionSchemas[sectionType]}
+
+${guidelines[sectionType]}
+
+# コピーライティングのポイント
+
+- **具体性**: 抽象的な表現ではなく、具体的なイメージが湧く言葉を使う
+- **感情訴求**: 理性だけでなく感情にも訴える
+- **ターゲット理解**: ペルソナの悩みや願望を深く理解した表現
+- **差別化**: 競合との違いを明確に示す
+- **行動喚起**: 次のアクションを暗に促す表現
+
+# 注意事項
+
+- mainImageUrl, imageUrl などは null にしてください
+- 必須フィールド（required）は必ず含めてください
+- 日本語で自然な文章を生成してください
+- JSON形式で正しく出力してください
+- 既存の内容よりも改善された、より魅力的な内容を生成してください`;
+}
+
+/**
+ * Generate user prompt for section regeneration
+ */
+export function generateSectionRegenerationUserPrompt(
+  sectionType: "hero" | "problem",
+  currentProps: HeroSectionProps | ProblemSectionProps,
+  vision: VisionInfo,
+  product: ProductInfo,
+  bridge: BridgeInfo
+): string {
+  const currentContent =
+    sectionType === "hero"
+      ? `## 現在のHeroセクション
+
+- **eyebrow**: ${(currentProps as HeroSectionProps).eyebrow || "（なし）"}
+- **headline**: ${(currentProps as HeroSectionProps).headline}
+- **subheadline**: ${(currentProps as HeroSectionProps).subheadline || "（なし）"}
+- **calloutText**: ${(currentProps as HeroSectionProps).calloutText || "（なし）"}
+- **alignment**: ${(currentProps as HeroSectionProps).alignment || "center"}`
+      : `## 現在のProblemセクション
+
+- **title**: ${(currentProps as ProblemSectionProps).title}
+- **description**: ${(currentProps as ProblemSectionProps).description || "（なし）"}
+- **bullets**:
+${(currentProps as ProblemSectionProps).bullets.map((b, i) => `  ${i + 1}. ${b}`).join("\n")}
+- **note**: ${(currentProps as ProblemSectionProps).note || "（なし）"}`;
+
+  return `以下の情報をもとに、${sectionType === "hero" ? "Hero" : "Problem"}セクションをより効果的な内容に改善してください。
+
+${currentContent}
+
+# Vision（ビジョン）
+
+## 具体的なシーン
+- **場所**: ${vision.specificScene.place}
+- **時間帯**: ${vision.specificScene.timeOfDay}
+- **雰囲気**: ${vision.specificScene.atmosphere}
+- **物語**: ${vision.specificScene.narrative}
+
+## 実際の現象
+- **会話**: ${vision.actualPhenomenon.conversations}
+- **行動**: ${vision.actualPhenomenon.actions}
+- **目に見える出来事**: ${vision.actualPhenomenon.visibleEvents}
+
+# Product（商品情報）
+
+## サービスアイデンティティ
+- **名称**: ${product.serviceIdentity.name}
+- **ワンライナー**: ${product.serviceIdentity.oneLiner}
+- **カテゴリー**: ${product.serviceIdentity.category}
+
+## 起源ストーリー
+${product.originStory}
+
+## ターゲットと痛み
+${product.targetAndPain.map((pain, i) => `${i + 1}. ${pain}`).join("\n")}
+
+## 特徴
+${product.features.map((feature, i) => `${i + 1}. ${feature}`).join("\n")}
+
+## オファー
+${product.offer}
+
+## 価格
+${product.price}
+
+# Bridge（ビジョンと商品を結ぶストーリー）
+
+${bridge.bridgeNarrative}
+
+---
+
+上記の情報と現在の内容を参考に、より魅力的で効果的な${sectionType === "hero" ? "Hero" : "Problem"}セクションをJSON形式で生成してください。
+現在の内容を改善し、Vision/Product/Bridgeの情報をより効果的に反映させてください。`;
+}
+
+/**
+ * Generate complete prompt for section regeneration
+ */
+export function generateSectionRegenerationPrompt(
+  sectionType: "hero" | "problem",
+  currentProps: HeroSectionProps | ProblemSectionProps,
+  vision: VisionInfo,
+  product: ProductInfo,
+  bridge: BridgeInfo
+): { system: string; user: string } {
+  return {
+    system: generateSectionRegenerationSystemPrompt(sectionType),
+    user: generateSectionRegenerationUserPrompt(
+      sectionType,
+      currentProps,
+      vision,
+      product,
+      bridge
+    ),
   };
 }
