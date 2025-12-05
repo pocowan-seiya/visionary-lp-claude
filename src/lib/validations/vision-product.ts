@@ -138,6 +138,7 @@ export function validateBridgeInfo(data: any): data is BridgeInfo {
 
 /**
  * Validate complete Vision/Product/Bridge data
+ * Note: Allows partial data for step-by-step saving
  */
 export function validateVisionProductData(data: any): {
   valid: boolean;
@@ -149,24 +150,24 @@ export function validateVisionProductData(data: any): {
     return { valid: false, errors: ["Invalid data format"] };
   }
 
-  // Validate Vision
-  if (!data.vision) {
-    errors.push("Vision data is required");
-  } else if (!validateVisionInfo(data.vision)) {
+  // At least one section should be provided
+  if (!data.vision && !data.product && !data.bridge) {
+    errors.push("At least one of Vision, Product, or Bridge data is required");
+    return { valid: false, errors };
+  }
+
+  // Validate Vision (only if provided)
+  if (data.vision && !validateVisionInfo(data.vision)) {
     errors.push("Invalid Vision data structure");
   }
 
-  // Validate Product
-  if (!data.product) {
-    errors.push("Product data is required");
-  } else if (!validateProductInfo(data.product)) {
+  // Validate Product (only if provided)
+  if (data.product && !validateProductInfo(data.product)) {
     errors.push("Invalid Product data structure");
   }
 
-  // Validate Bridge
-  if (!data.bridge) {
-    errors.push("Bridge data is required");
-  } else if (!validateBridgeInfo(data.bridge)) {
+  // Validate Bridge (only if provided)
+  if (data.bridge && !validateBridgeInfo(data.bridge)) {
     errors.push("Invalid Bridge data structure");
   }
 

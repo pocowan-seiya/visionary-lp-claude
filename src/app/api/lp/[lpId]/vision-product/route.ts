@@ -150,14 +150,26 @@ export async function POST(
       );
     }
 
-    // Upsert Vision/Product data
+    // Get existing data if any
     const visionProductRepo = createVisionProductRepository(supabase);
-    const data = await visionProductRepo.upsert({
+    const existing = await visionProductRepo.findByLpId(lpId);
+
+    // Merge with existing data (for step-by-step saving)
+    const mergedData = {
       lp_id: lpId,
-      vision: body.vision,
-      product: body.product,
-      bridge: body.bridge,
+      vision: body.vision || existing?.vision || {},
+      product: body.product || existing?.product || {},
+      bridge: body.bridge || existing?.bridge || {},
+    };
+
+    console.log("Merged data for save:", {
+      hasVision: !!mergedData.vision && Object.keys(mergedData.vision).length > 0,
+      hasProduct: !!mergedData.product && Object.keys(mergedData.product).length > 0,
+      hasBridge: !!mergedData.bridge && Object.keys(mergedData.bridge).length > 0,
     });
+
+    // Upsert Vision/Product data
+    const data = await visionProductRepo.upsert(mergedData);
 
     if (!data) {
       return NextResponse.json(
