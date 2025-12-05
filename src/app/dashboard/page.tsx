@@ -53,10 +53,10 @@ export default function DashboardPage() {
   async function handleCreateProject() {
     setCreating(true);
     try {
-      // Generate unique slug with random suffix
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substring(2, 7);
-      const slug = `lp-${timestamp}-${random}`;
+      // Generate cryptographically unique slug
+      const uuid = crypto.randomUUID().split('-')[0]; // First segment of UUID
+      const timestamp = Date.now().toString(36); // Base36 timestamp
+      const slug = `lp-${timestamp}-${uuid}`;
 
       const response = await fetch("/api/lp", {
         method: "POST",
@@ -71,13 +71,14 @@ export default function DashboardPage() {
         const result = await response.json();
         router.push(`/lp/${result.data.id}/vision`);
       } else {
-        const error = await response.json();
-        console.error("Failed to create project:", error);
-        alert(`プロジェクトの作成に失敗しました: ${error.error || "不明なエラー"}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Failed to create project:", errorData);
+        const errorMessage = errorData.error || `エラーコード: ${response.status}`;
+        alert(`プロジェクトの作成に失敗しました: ${errorMessage}`);
       }
     } catch (error) {
       console.error("Failed to create project:", error);
-      alert("プロジェクトの作成に失敗しました");
+      alert(`プロジェクトの作成に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
     } finally {
       setCreating(false);
     }
