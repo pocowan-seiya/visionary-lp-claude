@@ -96,6 +96,31 @@ export default function DashboardPage() {
     }
   }
 
+  async function handlePublishProject(id: string) {
+    if (!confirm("このLPを公開しますか？")) return;
+
+    try {
+      const response = await fetch(`/api/lp/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "published" }),
+      });
+
+      if (response.ok) {
+        // Refresh projects list
+        await loadProjects();
+        alert("LPを公開しました！");
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Failed to publish project:", errorData);
+        throw new Error(errorData.error || "Unknown error");
+      }
+    } catch (error) {
+      console.error("Failed to publish project:", error);
+      alert(`公開に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/auth");
@@ -163,48 +188,58 @@ export default function DashboardPage() {
               <Card key={project.id}>
                 <CardHeader>
                   <CardTitle>{project.title}</CardTitle>
-                  <CardDescription>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-block px-2 py-1 text-xs rounded ${
-                        project.status === "published"
-                          ? "bg-green-500/10 text-green-600"
-                          : project.status === "draft"
-                          ? "bg-yellow-500/10 text-yellow-600"
-                          : "bg-blue-500/10 text-blue-600"
-                      }`}>
-                        {project.status === "published"
-                          ? "公開中"
-                          : project.status === "draft"
-                          ? "下書き"
-                          : "プレビュー"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        /{project.slug}
-                      </span>
-                    </div>
+                  <CardDescription className="flex items-center gap-2 pt-2">
+                    <span className={`inline-block px-2 py-1 text-xs rounded ${
+                      project.status === "published"
+                        ? "bg-green-500/10 text-green-600"
+                        : project.status === "draft"
+                        ? "bg-yellow-500/10 text-yellow-600"
+                        : "bg-blue-500/10 text-blue-600"
+                    }`}>
+                      {project.status === "published"
+                        ? "公開中"
+                        : project.status === "draft"
+                        ? "下書き"
+                        : "プレビュー"}
+                    </span>
+                    <span className="text-xs">
+                      /{project.slug}
+                    </span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm text-muted-foreground mb-4">
                     {project.sections?.length || 0} セクション
                   </div>
-                  <div className="flex gap-2">
-                    <Link href={`/lp/${project.id}/vision`} className="flex-1">
+                  <div className="flex gap-2 flex-wrap">
+                    <Link href={`/lp/${project.id}/vision`} className="flex-1 min-w-[80px]">
                       <Button variant="outline" size="sm" className="w-full">
                         <Edit className="h-4 w-4 mr-1" />
                         入力
                       </Button>
                     </Link>
-                    <Link href={`/lp/${project.id}/edit`} className="flex-1">
+                    <Link href={`/lp/${project.id}/edit`} className="flex-1 min-w-[80px]">
                       <Button variant="outline" size="sm" className="w-full">
                         <Edit className="h-4 w-4 mr-1" />
                         編集
                       </Button>
                     </Link>
+                    {project.status !== "published" && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handlePublishProject(project.id)}
+                        className="flex-1 min-w-[80px]"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        公開
+                      </Button>
+                    )}
                     {project.status === "published" && (
-                      <Link href={`/p/${project.slug}`} target="_blank">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
+                      <Link href={`/p/${project.slug}`} target="_blank" className="flex-1 min-w-[80px]">
+                        <Button variant="outline" size="sm" className="w-full">
+                          <Eye className="h-4 w-4 mr-1" />
+                          表示
                         </Button>
                       </Link>
                     )}
