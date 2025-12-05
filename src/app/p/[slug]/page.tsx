@@ -10,10 +10,22 @@ interface PageProps {
   }>;
 }
 
-async function getLPBySlug(slug: string): Promise<LPProject | null> {
+async function getLPBySlugOrId(slugOrId: string): Promise<LPProject | null> {
   const supabase = await createClient();
   const lpRepo = createLPRepository(supabase);
-  const lp = await lpRepo.findBySlug(slug);
+
+  // Check if it's a UUID (LP ID) - UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
+
+  let lp: LPProject | null = null;
+
+  if (isUUID) {
+    // Try to find by ID first
+    lp = await lpRepo.findById(slugOrId);
+  } else {
+    // Find by slug
+    lp = await lpRepo.findBySlug(slugOrId);
+  }
 
   // Only return published LPs
   if (!lp || lp.status !== "published") {
@@ -25,7 +37,7 @@ async function getLPBySlug(slug: string): Promise<LPProject | null> {
 
 export default async function PublicPreviewPage({ params }: PageProps) {
   const { slug } = await params;
-  const lp = await getLPBySlug(slug);
+  const lp = await getLPBySlugOrId(slug);
 
   if (!lp) {
     notFound();
@@ -68,7 +80,7 @@ export default async function PublicPreviewPage({ params }: PageProps) {
 // Generate metadata for SEO
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
-  const lp = await getLPBySlug(slug);
+  const lp = await getLPBySlugOrId(slug);
 
   if (!lp) {
     return {
