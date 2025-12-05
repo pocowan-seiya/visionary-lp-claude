@@ -51,7 +51,7 @@ function generateSlug(): string {
 
 /**
  * POST /api/lp
- * Create a new LP project
+ * Create a new LP project with automatic slug retry on conflict
  */
 export async function POST(request: NextRequest) {
   try {
@@ -83,54 +83,45 @@ export async function POST(request: NextRequest) {
 
     const lpRepo = createLPRepository(supabase);
 
-    // Generate unique slug with retry mechanism
-    let slug = body.slug || generateSlug();
-    let attempts = 0;
-    const maxAttempts = 5;
+    // Retry logic: attempt to create LP with unique slug
+    const maxAttempts = 10;
+    let lastError: any = null;
 
-    while (attempts < maxAttempts) {
-      const isAvailable = await lpRepo.isSlugAvailable(slug);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const slug = generateSlug();
 
-      if (isAvailable) {
-        break;
-      }
+      const lp = await lpRepo.create({
+        user_id: user.id,
+        title: body.title,
+        slug,
+        status: body.status || "draft",
+        theme: body.theme || {},
+        sections: body.sections || [],
+        meta: body.meta || {},
+      });
 
-      // Slug taken, generate a new one
-      slug = generateSlug();
-      attempts++;
-
-      if (attempts >= maxAttempts) {
+      if (lp) {
+        // Success!
         return NextResponse.json(
-          { error: "Failed to generate unique slug after multiple attempts" },
-          { status: 500 }
+          {
+            message: "LP project created successfully",
+            data: lp,
+          },
+          { status: 201 }
         );
       }
+
+      // Failed to create, likely due to slug conflict
+      // Wait a tiny bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 10));
+      lastError = "Creation failed";
     }
 
-    // Create LP project
-    const lp = await lpRepo.create({
-      user_id: user.id,
-      title: body.title,
-      slug,
-      status: body.status || "draft",
-      theme: body.theme || {},
-      sections: body.sections || [],
-      meta: body.meta || {},
-    });
-
-    if (!lp) {
-      return NextResponse.json(
-        { error: "Failed to create LP project" },
-        { status: 500 }
-      );
-    }
-
+    // All attempts failed
+    console.error("Failed to create LP after multiple attempts:", lastError);
     return NextResponse.json(
-      {
-        message: "LP project created successfully",
-        data: lp,
-      },
-      { status: 201 }
+      { error: "Failed to create LP project. Please try again." },
+      { status: 500 }
     );
   } catch (error) {
     console.error("Error in POST /api/lp:", error);

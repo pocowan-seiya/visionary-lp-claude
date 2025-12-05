@@ -102,7 +102,13 @@ export class LPRepository {
       .single();
 
     if (error) {
-      console.error("Error creating LP project:", error);
+      console.error("Error creating LP project:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        slug: data.slug,
+      });
       return null;
     }
 
