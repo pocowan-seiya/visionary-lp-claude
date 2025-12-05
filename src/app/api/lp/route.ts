@@ -41,6 +41,15 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * Generate a unique slug
+ */
+function generateSlug(): string {
+  const uuid = crypto.randomUUID().split('-')[0];
+  const timestamp = Date.now().toString(36);
+  return `lp-${timestamp}-${uuid}`;
+}
+
+/**
  * POST /api/lp
  * Create a new LP project
  */
@@ -72,29 +81,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!body.slug || typeof body.slug !== "string") {
-      return NextResponse.json(
-        { error: "Slug is required" },
-        { status: 400 }
-      );
-    }
-
-    // Check slug uniqueness
     const lpRepo = createLPRepository(supabase);
-    const isAvailable = await lpRepo.isSlugAvailable(body.slug);
 
-    if (!isAvailable) {
-      return NextResponse.json(
-        { error: "Slug is already in use" },
-        { status: 409 }
-      );
+    // Generate unique slug with retry mechanism
+    let slug = body.slug || generateSlug();
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+      const isAvailable = await lpRepo.isSlugAvailable(slug);
+
+      if (isAvailable) {
+        break;
+      }
+
+      // Slug taken, generate a new one
+      slug = generateSlug();
+      attempts++;
+
+      if (attempts >= maxAttempts) {
+        return NextResponse.json(
+          { error: "Failed to generate unique slug after multiple attempts" },
+          { status: 500 }
+        );
+      }
     }
 
     // Create LP project
     const lp = await lpRepo.create({
       user_id: user.id,
       title: body.title,
-      slug: body.slug,
+      slug,
       status: body.status || "draft",
       theme: body.theme || {},
       sections: body.sections || [],
