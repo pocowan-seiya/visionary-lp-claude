@@ -53,18 +53,27 @@ export default function DashboardPage() {
   async function handleCreateProject() {
     setCreating(true);
     try {
+      // Generate unique slug with random suffix
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 7);
+      const slug = `lp-${timestamp}-${random}`;
+
       const response = await fetch("/api/lp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: "新しいLP",
-          slug: `lp-${Date.now()}`,
+          slug,
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
         router.push(`/lp/${result.data.id}/vision`);
+      } else {
+        const error = await response.json();
+        console.error("Failed to create project:", error);
+        alert(`プロジェクトの作成に失敗しました: ${error.error || "不明なエラー"}`);
       }
     } catch (error) {
       console.error("Failed to create project:", error);
