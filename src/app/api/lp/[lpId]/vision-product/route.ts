@@ -123,9 +123,24 @@ export async function POST(
 
     // Parse and validate request body
     const body = await request.json();
+
+    // Log the received data for debugging
+    console.log("Received Vision/Product data:", {
+      hasVision: !!body.vision,
+      hasProduct: !!body.product,
+      hasBridge: !!body.bridge,
+      visionKeys: body.vision ? Object.keys(body.vision) : [],
+      productKeys: body.product ? Object.keys(body.product) : [],
+      bridgeKeys: body.bridge ? Object.keys(body.bridge) : [],
+    });
+
     const validation = validateVisionProductData(body);
 
     if (!validation.valid) {
+      console.error("Validation failed for Vision/Product:", {
+        errors: validation.errors,
+        receivedData: body,
+      });
       return NextResponse.json(
         {
           error: "Validation failed",

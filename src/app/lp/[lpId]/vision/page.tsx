@@ -81,9 +81,14 @@ export default function VisionProductPage() {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Vision/Product save error:", errorData);
-      const errorMessage = errorData.details
-        ? `${errorData.error}: ${errorData.details.join(", ")}`
+      console.error("Vision/Product save error:", {
+        status: response.status,
+        error: errorData.error,
+        details: errorData.details,
+        fullResponse: errorData,
+      });
+      const errorMessage = errorData.details && errorData.details.length > 0
+        ? `${errorData.error}:\n${errorData.details.join("\n")}`
         : errorData.error || "Failed to save data";
       throw new Error(errorMessage);
     }
